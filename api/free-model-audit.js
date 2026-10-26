@@ -14,7 +14,7 @@ const MODELS = Object.freeze({
   "z-ai/glm-4.7-flash-free": new Set(["text", "text-low"]),
   "z-ai/glm-4.6v-flash-free": new Set(["text", "vision"]),
   "inclusionai/ming-image-0.1-design": new Set(["image-chat", "image-api"]),
-  "inclusionai/ming-image-0.1-design-layer": new Set(["layer-chat", "layer-api"]),
+  "inclusionai/ming-image-0.1-design-layer": new Set(["layer-chat", "layer-api", "layer-multipart"]),
 });
 
 function authorized(req) {
@@ -155,6 +155,20 @@ function requestFor(model, mode, image) {
       },
     };
   }
+  if (mode === "layer-multipart") {
+    if (!/^data:image\/(?:png|jpeg|webp|gif);base64,/i.test(String(image || ""))) {
+      throw new Error("Une image data URL PNG/JPEG/WebP/GIF est requise.");
+    }
+    return {
+      path: "/images/edits",
+      multipart: {
+        model,
+        image,
+        prompt: "Decompose this image into 2 layers. Number of layers: 2. Layer 1: background. Layer 2: foreground animal.",
+        output_format: "png",
+      },
+    };
+  }
   throw new Error("Mode d'audit inconnu.");
 }
 
@@ -181,18 +195,34 @@ export default async function handler(req, res) {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), 55_000);
     const started = Date.now();
+    const headers = {
+      Authorization: `Bearer ${process.env.ZENMUX_API_KEY}`,
+      Accept: "application/json",
+      "HTTP-Referer": "https://site-gratuit-dynamique.vercel.app/",
+      "X-Title": "Bruno Chat - Free Model Audit",
+    };
+    let upstreamBody;
+    if (request.multipart) {
+      const match = request.multipart.image.match(/^data:(image\/(?:png|jpeg|webp|gif));base64,(.+)$/i);
+      const mime = match[1].toLowerCase();
+      const extension = mime === "image/jpeg" ? "jpg" : mime.slice("image/".length);
+      const form = new FormData();
+      form.append("model", request.multipart.model);
+      form.append("prompt", request.multipart.prompt);
+      form.append("output_format", request.multipart.output_format);
+      form.append("image", new Blob([Buffer.from(match[2], "base64")], { type: mime }), `audit.${extension}`);
+      upstreamBody = form;
+    } else {
+      headers["Content-Type"] = "application/json";
+      upstreamBody = JSON.stringify(request.payload);
+    }
+
     let upstream;
     try {
       upstream = await fetch(`${BASE_URL}${request.path}`, {
         method: "POST",
-        headers: {
-          Authorization: `Bearer ${process.env.ZENMUX_API_KEY}`,
-          "Content-Type": "application/json",
-          Accept: "application/json",
-          "HTTP-Referer": "https://site-gratuit-dynamique.vercel.app/",
-          "X-Title": "Bruno Chat - Free Model Audit",
-        },
-        body: JSON.stringify(request.payload),
+        headers,
+        body: upstreamBody,
         signal: controller.signal,
       });
     } finally {
