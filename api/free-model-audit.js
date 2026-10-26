@@ -11,10 +11,10 @@ const MODELS = Object.freeze({
   "inclusionai/ling-3.1-flash": new Set(["text"]),
   "dots-studio/dots3-note-prev": new Set(["text", "vision"]),
   "sapiens-ai/agnes-2.5-flash": new Set(["text", "vision"]),
-  "z-ai/glm-4.7-flash-free": new Set(["text"]),
+  "z-ai/glm-4.7-flash-free": new Set(["text", "text-low"]),
   "z-ai/glm-4.6v-flash-free": new Set(["text", "vision"]),
   "inclusionai/ming-image-0.1-design": new Set(["image-chat", "image-api"]),
-  "inclusionai/ming-image-0.1-design-layer": new Set(["layer-chat"]),
+  "inclusionai/ming-image-0.1-design-layer": new Set(["layer-chat", "layer-api"]),
 });
 
 function authorized(req) {
@@ -63,6 +63,17 @@ function requestFor(model, mode, image) {
         model,
         messages: [{ role: "user", content: "Réponds uniquement FREE-MODEL-OK." }],
         max_completion_tokens: 512,
+      },
+    };
+  }
+  if (mode === "text-low") {
+    return {
+      path: "/chat/completions",
+      payload: {
+        model,
+        messages: [{ role: "user", content: "Réponds uniquement OK." }],
+        reasoning_effort: "low",
+        max_completion_tokens: 128,
       },
     };
   }
@@ -126,6 +137,20 @@ function requestFor(model, mode, image) {
           ],
         }],
         modalities: ["image"],
+        output_format: "png",
+      },
+    };
+  }
+  if (mode === "layer-api") {
+    if (!/^data:image\/(?:png|jpeg|webp|gif);base64,/i.test(String(image || ""))) {
+      throw new Error("Une image data URL PNG/JPEG/WebP/GIF est requise.");
+    }
+    return {
+      path: "/images/edits",
+      payload: {
+        model,
+        images: [{ image_url: image }],
+        prompt: "Decompose this image into 2 layers. Number of layers: 2. Layer 1: background. Layer 2: foreground animal.",
         output_format: "png",
       },
     };
