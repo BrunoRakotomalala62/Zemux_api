@@ -4,9 +4,6 @@
   "functions": {
     "api/index.js": {
       "maxDuration": 60
-    },
-    "api/free-model-audit.js": {
-      "maxDuration": 60
     }
   },
   "headers": [
