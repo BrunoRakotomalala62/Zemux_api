@@ -1,4 +1,4 @@
-import { getConfig, FREE_MODEL } from "./config.js";
+import { getConfig, FREE_MODEL, FREE_MODELS } from "./config.js";
 import { asHttpError, HttpError } from "./errors.js";
 import {
   applyCors,
@@ -71,24 +71,29 @@ function enforceRateLimit(req, limit) {
   }
 }
 
+const MODEL_ALIASES = new Map([
+  ["free", FREE_MODEL],
+  ["zenmux-free", FREE_MODEL],
+  ["glm-4.6v-flash-free", FREE_MODEL],
+  ["glm-4.6v-free", FREE_MODEL],
+  ["dots3-note-prev", "dots-studio/dots3-note-prev"],
+  ["dots3", "dots-studio/dots3-note-prev"],
+]);
+
 function validateRequestedModel(value) {
   if (!value) return FREE_MODEL;
   const normalized = String(value).trim().toLowerCase();
-  const aliases = new Set([
-    FREE_MODEL,
-    "glm-4.6v-flash-free",
-    "glm-4.6v-free",
-    "zenmux-free",
-    "free",
-  ]);
-  if (!aliases.has(normalized)) {
+  const selected = MODEL_ALIASES.get(normalized)
+    || FREE_MODELS.find((model) => model === normalized);
+  if (!selected) {
     throw new HttpError(
       400,
       "invalid_model",
-      `Cette API est verrouillée sur le modèle gratuit ${FREE_MODEL}.`,
+      "Ce modèle n'est pas autorisé. Utilisez uniquement un modèle gratuit de la liste blanche.",
+      { details: { allowed_models: [...FREE_MODELS] } },
     );
   }
-  return FREE_MODEL;
+  return selected;
 }
 
 function publicMetadata(config) {
@@ -96,10 +101,16 @@ function publicMetadata(config) {
     ok: true,
     name: "Zemux API",
     provider: "ZenMux",
-    version: "1.0.0",
+    version: "1.1.0",
     endpoint: "/api",
     methods: ["GET", "POST"],
     model: config.model,
+    default_model: config.model,
+    models: config.models.map((model) => ({
+      id: model,
+      pricing: "free",
+      capabilities: ["text", "vision"],
+    })),
     pricing: {
       catalog: "free",
       warning: "La disponibilité et les règles anti-abus restent contrôlées par ZenMux.",
@@ -120,6 +131,7 @@ function publicMetadata(config) {
     },
     examples: {
       text: `/api?zemux=Bonjour&uid=123&model=${encodeURIComponent(config.model)}`,
+      dots: `/api?zemux=Bonjour&uid=123&model=${encodeURIComponent("dots-studio/dots3-note-prev")}`,
       image: `/api?zemux=Décris%20cette%20image&image=https%3A%2F%2Fexample.com%2Fphoto.jpg&uid=123`,
       reset: "/api?uid=123&reset=1",
     },
@@ -227,14 +239,14 @@ export function createHandler(dependencies = {}) {
         );
       }
 
-      validateRequestedModel(valueFrom(input, "model"));
+      const model = validateRequestedModel(valueFrom(input, "model"));
       enforceRateLimit(req, config.rateLimitPerMinute);
       const rawImages = imageValuesFrom(input);
       const images = await prepareImages(rawImages, config, dependencies);
       const history = await store.get(uid);
       const messages = [...history.messages, { role: "user", content: prompt }];
       const client = dependencies.zenmux ?? new ZenMuxClient(config, { fetch: dependencies.fetch });
-      const completion = await client.chat({ messages, images });
+      const completion = await client.chat({ messages, images, model });
       const saved = await store.set(uid, [
         ...messages,
         { role: "assistant", content: completion.answer },
@@ -245,7 +257,7 @@ export function createHandler(dependencies = {}) {
         ok: true,
         request_id: id,
         uid,
-        model: completion.model || config.model,
+        model: completion.model || model,
         answer: completion.answer,
         usage: completion.usage,
         tokens: {

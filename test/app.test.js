@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { createHandler, resetRateLimitsForTests } from "../src/app.js";
-import { getConfig, FREE_MODEL } from "../src/config.js";
+import { getConfig, FREE_MODEL, FREE_MODELS } from "../src/config.js";
 
 class FakeStore {
   constructor() { this.records = new Map(); }
@@ -24,7 +24,7 @@ class FakeZenMux {
     this.calls.push(input);
     return {
       answer: `Réponse ${this.calls.length}`,
-      model: FREE_MODEL,
+      model: input.model || FREE_MODEL,
       usage: {
         prompt_tokens: 10,
         completion_tokens: 5,
@@ -71,6 +71,8 @@ test("GET /api sans paramètres décrit l'API gratuite", async () => {
   const response = await invoke(createHandler({ config: baseConfig() }), "/api");
   assert.equal(response.status, 200);
   assert.equal(response.json.model, FREE_MODEL);
+  assert.equal(response.json.default_model, FREE_MODEL);
+  assert.deepEqual(response.json.models.map((item) => item.id), [...FREE_MODELS]);
   assert.equal(response.json.pricing.catalog, "free");
   assert.deepEqual(response.json.methods, ["GET", "POST"]);
 });
@@ -124,13 +126,22 @@ test("une URL d'image distante est préparée sans exposer son contenu", async (
   assert.equal(response.json.image.sources[0].url, "https://images.example/photo.jpg");
 });
 
-test("le modèle est verrouillé sur le seul modèle gratuit", async () => {
-  const handler = createHandler({ config: baseConfig(), store: new FakeStore(), zenmux: new FakeZenMux() });
+test("la liste blanche autorise uniquement les deux modèles gratuits", async () => {
+  const zenmux = new FakeZenMux();
+  const handler = createHandler({ config: baseConfig(), store: new FakeStore(), zenmux });
   const denied = await invoke(handler, "/api?zemux=Bonjour&uid=123&model=openai%2Fgpt-5");
-  const alias = await invoke(handler, "/api?zemux=Bonjour&uid=124&model=free");
+  const defaultAlias = await invoke(handler, "/api?zemux=Bonjour&uid=124&model=free");
+  const dots = await invoke(handler, "/api?zemux=Bonjour&uid=125&model=dots-studio%2Fdots3-note-prev");
+  const dotsAlias = await invoke(handler, "/api?zemux=Bonjour&uid=126&model=dots3");
   assert.equal(denied.status, 400);
   assert.equal(denied.json.error.code, "invalid_model");
-  assert.equal(alias.status, 200);
+  assert.deepEqual(denied.json.error.details.allowed_models, [...FREE_MODELS]);
+  assert.equal(defaultAlias.status, 200);
+  assert.equal(defaultAlias.json.model, FREE_MODEL);
+  assert.equal(dots.status, 200);
+  assert.equal(dots.json.model, "dots-studio/dots3-note-prev");
+  assert.equal(dotsAlias.json.model, "dots-studio/dots3-note-prev");
+  assert.equal(zenmux.calls.at(-1).model, "dots-studio/dots3-note-prev");
 });
 
 test("ZEMUX_API_TOKEN protège facultativement la route", async () => {

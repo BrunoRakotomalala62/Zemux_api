@@ -1,14 +1,15 @@
 # Zemux API
 
-API REST sécurisée et déployable sur Vercel pour utiliser le modèle multimodal gratuit de ZenMux :
+API REST sécurisée et déployable sur Vercel pour utiliser deux modèles multimodaux gratuits de ZenMux :
 
-- **Modèle verrouillé côté serveur :** `z-ai/glm-4.6v-flash-free`
+- **Modèle par défaut :** `z-ai/glm-4.6v-flash-free`
+- **Second modèle validé :** `dots-studio/dots3-note-prev`
 - **Entrées :** texte et jusqu'à quatre images PNG/JPEG/WebP/GIF
 - **Conversation :** continuité par `uid`
 - **Compatibilité :** GET simple et POST JSON recommandé
 - **Secrets :** la clé ZenMux reste exclusivement dans `ZENMUX_API_KEY`
 
-Le modèle est volontairement fixé dans le code : un appelant public ne peut pas sélectionner par erreur un modèle payant.
+La liste blanche est volontairement fixée dans le code : un appelant public peut choisir l'un de ces deux modèles gratuits, mais aucun modèle ZenMux payant.
 
 [![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2FBrunoRakotomalala62%2FZemux_api&env=ZENMUX_API_KEY&project-name=zemux-api&repository-name=Zemux_api)
 
@@ -28,7 +29,16 @@ curl -G "https://YOUR_PROJECT.vercel.app/api" \
   --data-urlencode "uid=123"
 ```
 
-Réutilisez le même `uid` pour continuer la conversation.
+Pour choisir Dots3-Note :
+
+```bash
+curl -G "https://YOUR_PROJECT.vercel.app/api" \
+  --data-urlencode "zemux=Explique la photosynthèse" \
+  --data-urlencode "uid=123" \
+  --data-urlencode "model=dots-studio/dots3-note-prev"
+```
+
+Sans paramètre `model`, GLM 4.6V reste le modèle par défaut. Réutilisez le même `uid` pour continuer la conversation.
 
 ### Image par URL HTTPS
 
@@ -49,6 +59,7 @@ curl -X POST "https://YOUR_PROJECT.vercel.app/api" \
   -d '{
     "message": "Compare ces images",
     "uid": "123",
+    "model": "dots-studio/dots3-note-prev",
     "reset": true,
     "images": [
       "data:image/jpeg;base64,...",
@@ -115,7 +126,7 @@ Une clé partagée dans une conversation ou un message doit être considérée c
 
 Dans le tableau de bord ZenMux, il est recommandé de limiter la clé à :
 
-- modèle autorisé : `z-ai/glm-4.6v-flash-free` uniquement ;
+- modèles autorisés : `z-ai/glm-4.6v-flash-free` et `dots-studio/dots3-note-prev` uniquement ;
 - RPM/TPM adaptés au trafic du site ;
 - limite de crédit minimale.
 
@@ -155,7 +166,7 @@ L'API locale écoute alors sur `http://localhost:3000/api`.
 ## Sécurité
 
 - aucune clé dans le dépôt ;
-- modèle gratuit verrouillé côté serveur ;
+- liste blanche de deux modèles gratuits verrouillée côté serveur ;
 - validation stricte de `uid` ;
 - CORS configurable ;
 - protection facultative de la route ;

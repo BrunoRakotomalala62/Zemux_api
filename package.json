@@ -1,7 +1,7 @@
 {
   "name": "zemux-api",
-  "version": "1.0.0",
-  "description": "API REST Vercel sécurisée pour le modèle gratuit et multimodal ZenMux GLM 4.6V Flash.",
+  "version": "1.1.0",
+  "description": "API REST Vercel sécurisée pour GLM 4.6V Flash et Dots3-Note Preview, deux modèles ZenMux gratuits et multimodaux.",
   "private": true,
   "type": "module",
   "engines": {

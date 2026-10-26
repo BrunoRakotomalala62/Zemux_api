@@ -1,4 +1,8 @@
-const FREE_MODEL = "z-ai/glm-4.6v-flash-free";
+const FREE_MODELS = Object.freeze([
+  "z-ai/glm-4.6v-flash-free",
+  "dots-studio/dots3-note-prev",
+]);
+const FREE_MODEL = FREE_MODELS[0];
 
 function integerFromEnv(value, fallback, min, max) {
   if (value === undefined || value === "") return fallback;
@@ -14,8 +18,9 @@ export function getConfig(env = process.env) {
   return {
     zenmuxApiKey: env.ZENMUX_API_KEY?.trim() ?? "",
     zenmuxBaseUrl: stripTrailingSlash(env.ZENMUX_API_BASE_URL || "https://zenmux.ai/api/v1"),
-    // Verrouillé côté serveur : aucune requête publique ne peut sélectionner un modèle payant.
+    // Liste blanche codée en dur : aucune requête publique ne peut sélectionner un modèle payant.
     model: FREE_MODEL,
+    models: FREE_MODELS,
     reasoningEffort: ["low", "medium", "high"].includes(env.DEFAULT_REASONING_EFFORT)
       ? env.DEFAULT_REASONING_EFFORT
       : "low",
@@ -45,4 +50,4 @@ export function getConfig(env = process.env) {
   };
 }
 
-export { FREE_MODEL };
+export { FREE_MODEL, FREE_MODELS };

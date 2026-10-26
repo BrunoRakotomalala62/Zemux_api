@@ -1,8 +1,8 @@
 openapi: 3.1.0
 info:
   title: Zemux API
-  version: 1.0.0
-  description: API REST sécurisée pour z-ai/glm-4.6v-flash-free via ZenMux.
+  version: 1.1.0
+  description: API REST sécurisée avec liste blanche GLM 4.6V Flash et Dots3-Note Preview via ZenMux.
 servers:
   - url: https://YOUR_PROJECT.vercel.app
 paths:
@@ -18,6 +18,12 @@ paths:
           name: uid
           required: true
           schema: { type: string, minLength: 1, maxLength: 128 }
+        - in: query
+          name: model
+          schema:
+            type: string
+            enum: [z-ai/glm-4.6v-flash-free, dots-studio/dots3-note-prev]
+          description: Modèle gratuit. GLM 4.6V est utilisé par défaut.
         - in: query
           name: image
           schema: { type: string, format: uri }
@@ -53,7 +59,8 @@ paths:
                 uid: { type: string, minLength: 1, maxLength: 128 }
                 model:
                   type: string
-                  enum: [z-ai/glm-4.6v-flash-free]
+                  enum: [z-ai/glm-4.6v-flash-free, dots-studio/dots3-note-prev]
+                  default: z-ai/glm-4.6v-flash-free
                 reset: { type: boolean }
                 image:
                   type: string

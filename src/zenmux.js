@@ -36,8 +36,20 @@ export class ZenMuxClient {
     }
   }
 
-  async chat({ messages, images = [] }) {
+  async chat({ messages, images = [], model = this.config.model }) {
     this.assertConfigured();
+    const selectedModel = String(model || this.config.model).trim().toLowerCase();
+    const allowedModels = Array.isArray(this.config.models)
+      ? this.config.models
+      : [this.config.model];
+    if (!allowedModels.includes(selectedModel)) {
+      throw new HttpError(
+        400,
+        "invalid_model",
+        "Le client ZenMux refuse tout modèle absent de la liste blanche gratuite.",
+        { details: { allowed_models: [...allowedModels] } },
+      );
+    }
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), this.config.upstreamTimeoutMs);
     const historical = messages.slice(0, -1);
@@ -71,7 +83,7 @@ export class ZenMuxClient {
           "X-Title": "Bruno Chat - Zemux API",
         },
         body: JSON.stringify({
-          model: this.config.model,
+          model: selectedModel,
           messages: upstreamMessages,
           reasoning_effort: this.config.reasoningEffort,
           max_completion_tokens: this.config.maxCompletionTokens,
@@ -133,7 +145,7 @@ export class ZenMuxClient {
 
     return {
       answer,
-      model: payload.model || this.config.model,
+      model: payload.model || selectedModel,
       usage: payload.usage || null,
       finishReason: choice?.finish_reason || null,
       generationId: payload.id || null,

@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { getConfig, FREE_MODEL } from "../src/config.js";
+import { getConfig, FREE_MODEL, FREE_MODELS } from "../src/config.js";
 import { ZenMuxClient } from "../src/zenmux.js";
 
 function jsonResponse(status, payload) {
@@ -10,7 +10,7 @@ function jsonResponse(status, payload) {
   });
 }
 
-test("le client verrouille le modèle gratuit et transmet les images", async () => {
+test("le client utilise le modèle gratuit par défaut et transmet les images", async () => {
   let sent;
   let sentHeaders;
   const client = new ZenMuxClient(getConfig({ ZENMUX_API_KEY: "test" }), {
@@ -34,6 +34,35 @@ test("le client verrouille le modèle gratuit et transmet les images", async () 
   assert.match(sentHeaders["X-Title"], /^[\x20-\x7E]+$/);
   assert.equal(result.answer, "Un chat");
   assert.equal(result.generationId, "gen-test");
+});
+
+test("le client route Dots3 et refuse tout modèle hors liste blanche", async () => {
+  let sent;
+  const dots = "dots-studio/dots3-note-prev";
+  const client = new ZenMuxClient(getConfig({ ZENMUX_API_KEY: "test" }), {
+    fetch: async (_url, options) => {
+      sent = JSON.parse(options.body);
+      return jsonResponse(200, {
+        model: dots,
+        choices: [{ message: { content: "Réponse Dots" }, finish_reason: "stop" }],
+      });
+    },
+  });
+  const result = await client.chat({
+    model: dots,
+    messages: [{ role: "user", content: "Bonjour" }],
+  });
+  assert.deepEqual([...FREE_MODELS], [FREE_MODEL, dots]);
+  assert.equal(sent.model, dots);
+  assert.equal(result.model, dots);
+  assert.equal(result.answer, "Réponse Dots");
+  await assert.rejects(
+    client.chat({
+      model: "openai/gpt-5",
+      messages: [{ role: "user", content: "Bonjour" }],
+    }),
+    (error) => error.code === "invalid_model" && error.status === 400,
+  );
 });
 
 test("le raisonnement interne n'est jamais utilisé comme réponse", async () => {
