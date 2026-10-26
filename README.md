@@ -10,6 +10,8 @@ API REST sécurisée et déployable sur Vercel pour utiliser le modèle multimod
 
 Le modèle est volontairement fixé dans le code : un appelant public ne peut pas sélectionner par erreur un modèle payant.
 
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2FBrunoRakotomalala62%2FZemux_api&env=ZENMUX_API_KEY&project-name=zemux-api&repository-name=Zemux_api)
+
 ## Route
 
 ### Texte avec GET
