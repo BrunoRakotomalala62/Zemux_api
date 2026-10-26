@@ -1,0 +1,111 @@
+openapi: 3.1.0
+info:
+  title: Zemux API
+  version: 1.0.0
+  description: API REST sécurisée pour z-ai/glm-4.6v-flash-free via ZenMux.
+servers:
+  - url: https://YOUR_PROJECT.vercel.app
+paths:
+  /api:
+    get:
+      summary: Conversation texte ou vision
+      parameters:
+        - in: query
+          name: zemux
+          schema: { type: string, maxLength: 12000 }
+          description: Message utilisateur. Alias acceptés : zenmux, message, prompt.
+        - in: query
+          name: uid
+          required: true
+          schema: { type: string, minLength: 1, maxLength: 128 }
+        - in: query
+          name: image
+          schema: { type: string, format: uri }
+          description: URL HTTPS publique d'une image.
+        - in: query
+          name: reset
+          schema: { type: boolean }
+      responses:
+        "200":
+          description: Réponse ou métadonnées de l'API
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Success" }
+        "400": { $ref: "#/components/responses/Error" }
+        "401": { $ref: "#/components/responses/Error" }
+        "413": { $ref: "#/components/responses/Error" }
+        "415": { $ref: "#/components/responses/Error" }
+        "429": { $ref: "#/components/responses/Error" }
+        "502": { $ref: "#/components/responses/Error" }
+        "503": { $ref: "#/components/responses/Error" }
+        "504": { $ref: "#/components/responses/Error" }
+    post:
+      summary: Conversation POST avec images locales ou distantes
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [message, uid]
+              properties:
+                message: { type: string, maxLength: 12000 }
+                uid: { type: string, minLength: 1, maxLength: 128 }
+                model:
+                  type: string
+                  enum: [z-ai/glm-4.6v-flash-free]
+                reset: { type: boolean }
+                image:
+                  type: string
+                  description: URL HTTPS ou data URL PNG/JPEG/WebP/GIF.
+                images:
+                  type: array
+                  maxItems: 4
+                  items: { type: string }
+      responses:
+        "200":
+          description: Réponse du modèle
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Success" }
+        "400": { $ref: "#/components/responses/Error" }
+        "401": { $ref: "#/components/responses/Error" }
+        "413": { $ref: "#/components/responses/Error" }
+        "415": { $ref: "#/components/responses/Error" }
+        "429": { $ref: "#/components/responses/Error" }
+        "502": { $ref: "#/components/responses/Error" }
+        "503": { $ref: "#/components/responses/Error" }
+        "504": { $ref: "#/components/responses/Error" }
+components:
+  schemas:
+    Success:
+      type: object
+      properties:
+        ok: { type: boolean, const: true }
+        request_id: { type: string }
+        uid: { type: string }
+        model: { type: string }
+        answer: { type: string }
+        usage: { type: [object, "null"], additionalProperties: true }
+        tokens: { type: object, additionalProperties: true }
+        billing: { type: object, additionalProperties: true }
+        image: { type: [object, "null"], additionalProperties: true }
+        conversation: { type: object, additionalProperties: true }
+    Error:
+      type: object
+      required: [ok, request_id, error]
+      properties:
+        ok: { type: boolean, const: false }
+        request_id: { type: string }
+        error:
+          type: object
+          required: [code, message]
+          properties:
+            code: { type: string }
+            message: { type: string }
+  responses:
+    Error:
+      description: Erreur structurée
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
